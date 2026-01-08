@@ -41,7 +41,6 @@ int main() {
     }
     cin.ignore(numeric_limits<streamsize>::max(), '\n');
     for (int i=0;i<n*m;i++) {
-        cout << i << " "<< n*m << endl; 
         string entry;
         getline(cin, entry);
         vector<string> tokens = splitStringBySpace(entry);
@@ -69,3 +68,4 @@ int main() {
     }
     cout << "Invalid String.";
 }
+
