@@ -1,134 +1,137 @@
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <cctype>
+#include <bits/stdc++.h>
 using namespace std;
+
+bool isKeyword(const string &s)
+{
+    static set<string> keywords = {
+        "auto","break","case","char","const","continue","default","do",
+        "double","else","enum","extern","float","for","goto","if",
+        "int","long","register","return","short","signed","sizeof","static",
+        "struct","switch","typedef","union","unsigned","void","volatile","while"};
+    return keywords.count(s);
+}
 
 int main()
 {
-    ifstream file("practical1.c");
-
-    string keyword[32] = {
-        "auto", "break", "case", "char", "const", "continue", "default", "do",
-        "double", "else", "enum", "extern", "float", "for", "goto", "if",
-        "int", "long", "register", "return", "short", "signed", "sizeof", "static",
-        "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"};
-
-    string operators = "+-*/%=&|^~<>!";
-    string punctuations = ".,;:(){}[]#";
-
-    if (!file.is_open())
+    ifstream file("test1.c");
+    if (!file)
     {
         cout << "File not found!" << endl;
         return 1;
     }
 
-    stringstream buffer;
-    buffer << file.rdbuf();
-    string fileContent = buffer.str();
+    vector<string> tokens;
+    vector<string> lexicalErrors;
+    set<string> symbolTable;
 
-    for (size_t i = 0; i < fileContent.size();)
+    string operators = "+-*/%=&|^~<>!";
+    string punctuations = ".,;:(){}[]#";
+
+    string line;
+    int lineNo = 0;
+
+    while (getline(file, line))
     {
+        lineNo++;
 
-        if (fileContent[i] == '/' && i + 1 < fileContent.size() &&
-            fileContent[i + 1] == '/')
+        /* Remove single-line comments */
+        size_t pos = line.find("//");
+        if (pos != string::npos)
+            line = line.substr(0, pos);
+
+        for (size_t i = 0; i < line.size();)
         {
-
-            size_t j = i;
-            while (j < fileContent.size() && fileContent[j] != '\n')
-                j++;
-            fileContent.erase(i, j - i);
-        }
-        else if (fileContent[i] == '/' && i + 1 < fileContent.size() &&
-                 fileContent[i + 1] == '*')
-        {
-
-            size_t j = i + 2;
-            while (j + 1 < fileContent.size() &&
-                   !(fileContent[j] == '*' && fileContent[j + 1] == '/'))
-                j++;
-            j += 2;
-            fileContent.erase(i, j - i);
-        }
-        else
-        {
-            i++;
-        }
-    }
-
-    for (size_t i = 0; i < fileContent.size();)
-    {
-
-        if (isspace(fileContent[i]))
-        {
-            i++;
-            continue;
-        }
-
-        if (isalpha(fileContent[i]) || fileContent[i] == '_')
-        {
-            size_t j = i;
-            while (j < fileContent.size() &&
-                   (isalnum(fileContent[j]) || fileContent[j] == '_'))
-                j++;
-
-            string str = fileContent.substr(i, j - i);
-            bool isKey = false;
-
-            for (int k = 0; k < 32; k++)
+            if (isspace(line[i]))
             {
-                if (str == keyword[k])
-                {
-                    cout << "Keyword: " << str << endl;
-                    isKey = true;
-                    break;
-                }
+                i++;
+                continue;
             }
 
-            if (!isKey)
-                cout << "Identifier: " << str << endl;
+            /* Identifier or Keyword */
+            if (isalpha(line[i]) || line[i] == '_')
+            {
+                size_t j = i;
+                while (j < line.size() && (isalnum(line[j]) || line[j] == '_'))
+                    j++;
 
-            i = j;
-        }
+                string word = line.substr(i, j - i);
 
-        else if (isdigit(fileContent[i]))
-        {
-            size_t j = i;
-            while (j < fileContent.size() && isdigit(fileContent[j]))
+                if (isKeyword(word))
+                    tokens.push_back("Keyword: " + word);
+                else
+                {
+                    tokens.push_back("Identifier: " + word);
+                    symbolTable.insert(word);
+                }
+
+                i = j;
+            }
+
+            /* Numeric Constant or Invalid Lexeme */
+            else if (isdigit(line[i]))
+            {
+                size_t j = i;
+                while (j < line.size() && isalnum(line[j]))
+                    j++;
+
+                string num = line.substr(i, j - i);
+
+                if (all_of(num.begin(), num.end(), ::isdigit))
+                    tokens.push_back("Constant: " + num);
+                else
+                    lexicalErrors.push_back("Line " + to_string(lineNo) +
+                                             " : " + num + " invalid lexeme");
+
+                i = j;
+            }
+
+            else if (line[i] == '\'')
+            {
+                size_t j = i + 1;
+                while (j < line.size() && line[j] != '\'')
+                    j++;
                 j++;
 
-            cout << "Constant: " << fileContent.substr(i, j - i) << endl;
-            i = j;
-        }
+                tokens.push_back("Constant: " + line.substr(i, j - i));
+                i = j;
+            }
 
-        else if (fileContent[i] == '\'')
-        {
-            size_t j = i + 1;
-            while (j < fileContent.size() && fileContent[j] != '\'')
-                j++;
-            j++;
+            else if (operators.find(line[i]) != string::npos)
+            {
+                tokens.push_back("Operator: " + string(1, line[i]));
+                i++;
+            }
 
-            cout << "Constant: " << fileContent.substr(i, j - i) << endl;
-            i = j;
-        }
+            else if (punctuations.find(line[i]) != string::npos)
+            {
+                tokens.push_back("Punctuation: " + string(1, line[i]));
+                i++;
+            }
 
-        else if (operators.find(fileContent[i]) != string::npos)
-        {
-            cout << "Operator: " << fileContent[i] << endl;
-            i++;
-        }
-
-        else if (punctuations.find(fileContent[i]) != string::npos)
-        {
-            cout << "Punctuation: " << fileContent[i] << endl;
-            i++;
-        }
-
-        else
-        {
-            i++;
+            else
+            {
+                i++;
+            }
         }
     }
+
+    /* OUTPUT FORMAT */
+
+    cout << "TOKENS\n";
+    for (auto &t : tokens)
+        cout << t << endl;
+
+    cout << "\nLEXICAL ERRORS\n";
+    if (lexicalErrors.empty())
+        cout << "None\n";
+    else
+        for (auto &e : lexicalErrors)
+            cout << e << endl;
+
+    cout << "\nSYMBOL TABLE ENTRIES\n";
+    int idx = 1;
+    for (auto &s : symbolTable)
+        cout << idx++ << ") " << s << endl;
 
     return 0;
 }
